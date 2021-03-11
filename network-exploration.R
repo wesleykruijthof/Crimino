@@ -4,29 +4,30 @@ library(igraph)
 library(dplyr)
 library(threejs)
 library(ggplot2)
-setwd("~/MSc BIM/Current Courses/NDA/Group assignment/data") #Wesley
+
 dt.crimes <- as.data.table(read.csv("Crimes.2017.csv"))
 ui <-    fluidPage(
-           tabsetPanel(
-             tabPanel("Network of Crimes", 
-                      titlePanel('Network Exploration'),
-                      sidebarLayout(
-                        sidebarPanel(
-                          h2("Showing bipartite projection"),
-                          selectInput(inputId = 'location', label = 'Select Location Varibale', choices = c('District', 'Ward'), selected = 'District'),
-                          selectInput(inputId = 'edge', label = 'Choose Edges', choices = c('Crime Type', 'Location'), selected = 'Crime Type'),
-                          #sliderInput(inputId = 'degree', label = 'Select Degree Range', min = 0, max = 6000, value = 10),
-                          #dateRangeInput(inputId = 'daterange', label = 'Choose a Date Range', start = '2017-01-01', end = '2017-12-31', startview = 'month', separator = ' to '),
-                          selectInput(inputId = 'centrality', label = 'Select Centrality Measure', choices = c('Degree', 'Closeness Centrality', 'Betweenness Centrality', 'Eigenvector Centrality'), selected = 'Degree')),
-                        mainPanel(   
-                          plotOutput('graph'),
-                          plotOutput('degreedist'),
-                          #      DT::DTOutput("networksummary"),
-                          tableOutput("topcentralities")
-                        ))
-             ),
-             tabPanel("Network of Wards")
-           )) 
+  tabsetPanel(
+    tabPanel("Network of Crimes", 
+             titlePanel('Network Exploration'),
+             sidebarLayout(
+               sidebarPanel(
+                 h2("Showing bipartite projection"),
+                 selectInput(inputId = 'location', label = 'Select Location Varibale', choices = c('District', 'Ward'), selected = 'District'),
+                 selectInput(inputId = 'edge', label = 'Choose Edges', choices = c('Crime Type', 'Location'), selected = 'Crime Type'),
+                 #sliderInput(inputId = 'degree', label = 'Select Degree Range', min = 0, max = 6000, value = 10),
+                 #dateRangeInput(inputId = 'daterange', label = 'Choose a Date Range', start = '2017-01-01', end = '2017-12-31', startview = 'month', separator = ' to '),
+                 selectInput(inputId = 'centrality', label = 'Select Centrality Measure', choices = c('Degree', 'Closeness Centrality', 'Betweenness Centrality', 'Eigenvector Centrality'), selected = 'Degree')),
+               mainPanel(   
+                 plotOutput('graph'),
+                 plotOutput('degreedist'),
+                 #      DT::DTOutput("networksummary"),
+                 tableOutput("topcentralities"),
+                 tableOutput("centralitystats")
+               ))
+    ),
+    tabPanel("Network of Wards")
+  )) 
 
 
 
@@ -99,7 +100,7 @@ server <- function(input, output, session) {
   })
   
   graphObject <- reactive({
-  
+    
     g.graph <- graph.edgelist(edgelist()[, 1:2], directed = FALSE)
     E(g.graph)$weight <- as.numeric(edgelist()[, 3])
     V(g.graph)$degree <- igraph::degree(g.graph)
@@ -107,35 +108,70 @@ server <- function(input, output, session) {
     V(g.graph)$betweenness <- igraph::betweenness(g.graph)
     V(g.graph)$evcent <- igraph::evcent(g.graph)$vector
     
+    
   })
   
   tableObject <- reactive({
     dt.g.graph <- data.table::data.table(igraph::get.data.frame(graphObject(), "vertices"))
     dt.g.graph <- dt.g.graph[, name := rownames(dt.g.graph)]
     dt.g.graph.order <- data.frame(degreename = head(dt.g.graph[order(-degree)], 20)$name,
-                                       degree = head(dt.g.graph[order(-degree)], 20)$degree,
-                                       closenessname = head(dt.g.graph[order(-closeness)], 20)$name,
-                                       closeness = head(dt.g.graph[order(-closeness)], 20)$closeness,
-                                       betweennessname = head(dt.g.graph[order(-betweenness)], 20)$name,
-                                       betweenness = head(dt.g.graph[order(-betweenness)], 20)$ betweenness,
-                                       evcentname = head(dt.g.graph[order(-evcent)], 20)$name,
-                                       evcent = head(dt.g.graph[order(-evcent)], 20)$evcent)
-  })
-  
+                                   degree = head(dt.g.graph[order(-degree)], 20)$degree,
+                                   closenessname = head(dt.g.graph[order(-closeness)], 20)$name,
+                                   closeness = head(dt.g.graph[order(-closeness)], 20)$closeness,
+                                   betweennessname = head(dt.g.graph[order(-betweenness)], 20)$name,
+                                   betweenness = head(dt.g.graph[order(-betweenness)], 20)$betweenness,
+                                   evcentname = head(dt.g.graph[order(-evcent)], 20)$name,
+                                   evcent = head(dt.g.graph[order(-evcent)], 20)$evcent)
+    })
+ 
+ tableObject <- reactive({ 
+   
+   dt.g.graph <- data.table::data.table(igraph::get.data.frame(graphObject(), "vertices"))
+   
+   if (input$centrality == "Betweenness Centrality") {
+   dt.g.graph.betwenness <- data.frame(Minimum = min(dt.g.graph$betweenness),
+                                             Maximum = max(dt.g.graph$betweenness),
+                                            Standard Deviation =  sd(dt.g.graph$betweenness)
+                                            Mean = mean(dt.g.graph$betweenness))
+   
+   } else if (input$centrality == "Degree Centrality") {
+     dt.g.graph.betwenness <- data.frame(Minimum = min(dt.g.graph$deegre),
+                                         Maximum = max(dt.g.graph$deegre),
+                                         Standard Deviation = sd(dt.g.graph$deegre),
+                                         Mean = mean(dt.g.graph$deegre))
+ 
+ } else if (input$centrality == "Closeness Centrality") {
+   dt.g.graph.betwenness <- data.frame(Minimum = min(dt.g.graph$closeness),
+                                       Maximum = max(dt.g.graph$closeness),
+                                       Standard Deviation = sd(dt.g.graph$closeness),
+                                       Mean = mean(dt.g.graph$closeness))
+   
+  } else if (input$centrality == "Eigenvector Centrality") {
+    dt.g.graph.betwenness <- data.frame(Minimum = min(dt.g.graph$evcent),
+                                        Maximum = max(dt.g.graph$evcent),
+                                        Standard Deviation = sd(dt.g.graph$evcent),
+                                        Mean = mean(dt.g.graph$evcent))
+}
+ 
+ })
+    
   output$graph <- renderPlot({
     igraph::plot.igraph(graphObject(), vertex.size = 3, vertex.label = NA)
   })
-
-
+  
+  
   output$degreedist <- renderPlot({
     ggplot2::qplot(degree(graphObject()), geom = 'histogram', binwidth = 1)
   })
   
   output$topcentralities <- renderTable({
     tableObject()
-  })  
-
-}
+  }) 
   
-    shinyApp(ui, server)
-    
+  output$centralitystats <- renderTable({
+    tableObject()
+  })  
+  
+}
+
+shinyApp(ui, server)
