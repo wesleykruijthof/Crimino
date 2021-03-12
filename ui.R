@@ -10,11 +10,12 @@ navbarPage("Crimino", collapsible = TRUE, inverse = TRUE, theme = "bootstrap.css
                            tabPanel("Platform", 
                                      br(),
                             p("Crimino is a platform which aims to shed light on patterns of crime in the city of Chicago. 
-By making use of a dataset extracted from the Chicago Police department for the year 2017, this platform offers you the possibility to view and analyze criminal data in different formats."),
+By making use of a dataset extracted from the Chicago Police department for the year 2020, this platform offers you the possibility to view and analyze criminal data in different formats."),
 
 p("The general aim of Crimino is to expose patterns that could not previously be seen by the naked eye and help law enforcement distinguish connections between crime type, location and time."),
 
-p("In addition to the overview provided in Data explorer and Interactive map, Crimino provides an advanced analysis to try and predict crime cooccurrence based on various user inputs.")),
+p("In addition to the overview provided in Data explorer and Interactive map, Crimino provides an advanced analysis via link prediction to try and predict crime cooccurrence.
+Finally, Crimino provides a node similarity analysis to spot similarities across the wards of Chicago in terms of crime type and demographics.")),
                                  tabPanel("Relevance",
                                           br(),
                                           p(" One of the drawbacks of having separate law enforcement entities dedicated to distinct locations is that sometimes, one can lose sight of the overall picture. 
@@ -25,27 +26,37 @@ p("In addition to the overview provided in Data explorer and Interactive map, Cr
                                             p("Having this overview, gives authorities the opportunity to devise efficient measures of crime control and proactively fight it.")),
                                             
                         
-                          tabPanel("Team",
+                            tabPanel("Team",
                                      br(),
                                      p("Meet the team behind Crimino! A team of students of Business Information Management at RSM who aim to help you explore the crime network in Chicago."),
                                      br(),
-img(src = "Klea.png", height = 100, width = 200),
-p("<b>","Klea Gjana","</b>"),
-p("Business Information student"),
+                                     fluidRow(
+                                       column(3, 
+img(src = "Klea.png", height = 100, width = 100),
+img(src = "Wesley.png", height = 100, width = 100),
+img(src = "Maria.png", height = 100, width = 100),
+img(src = "Jelle.png", height = 100, width = 100)),
 
-img(src = "Wesley.png", height = 100, width = 200),
-p("<b>","Wesley Kruijthof","</b>"),
-p("Business Information student"),
-
-img(src = "Maria.png", height = 100, width = 200),
-p("<b>","Maria Pere de Melo","</b>"),
-p("Business Information student"),
-
-img(src = "Jelle.png", height = 100, width = 200),
-p("<b>","Jelle van der Grijn","</b>"),
-p("Business Information student")
+column(4, 
+p("Klea Gjana"),
+p("BIM student"),
+br(),
+br(),
+br(),
+p("Wesley Kruijthof"),
+p("BIM student"),
+br(),
+br(),
+br(),
+p("Maria Peres de Melo"),
+p("BIM student"),
+br(),
+br(),
+br(),
+p("Jelle van der Grijn"),
+p("BIM student"))
                           
-                        )))),
+                        ))))),
            ),
            
            tabPanel("Data Explorer",
@@ -88,7 +99,7 @@ p("Business Information student")
                                      sidebarPanel(
                                                 h4("Explore the Crimino Dataset"),
                                                 p("Here you can find overall descriptives on the crime in Chicago in 2017. There are in total 254 different types of crimes happening accross 50 wards. 
-                                                       In total, there are around 40.000 crime cases in more than 30.000 different specific locations"),
+                                                       In total, there are around 30.000 crime cases in more that 28.000 different specific locations"),
                                               br(),
                                        tableOutput("tb.descriptives")
                                      ),
@@ -137,9 +148,7 @@ p("Business Information student")
                                    mainPanel(
                                      tabsetPanel(
                                        tabPanel('Overview', 
-                                                {DT::DTOutput('summarytable')},
-                                                br(),
-                                       {DT::DTOutput('demotable')}),
+                                                {DT::DTOutput('summarytable')}),
                                        tabPanel('Chart',
                                                 {plotOutput('hist')})
                                      ))))
@@ -186,20 +195,30 @@ This projection, allows you to check locations that are connected by having comm
                     fluidPage(
                       tabsetPanel(
                         tabPanel("Network Visualization", 
-                                 titlePanel('Network Exploration'),
-                                 sidebarLayout(
-                                   sidebarPanel(
-                                     selectInput(inputId = 'node', label = 'Select Location Varibale', choices = c('District', 'Ward'), selected = 'District'),
-                                     selectInput(inputId = 'edge', label = 'Choose Edges', choices = c('Crime Type', 'Location'), selected = 'Crime Type'),
-                                     #sliderInput(inputId = 'degree', label = 'Select Degree Range', min = 0, max = 6000, value = 10),
-                                     #dateRangeInput(inputId = 'daterange', label = 'Choose a Date Range', start = '2017-01-01', end = '2017-12-31', startview = 'month', separator = ' to '),
-                                     selectInput(inputId = 'centrality', label = 'Select Centrality Measure', choices = c('Degree', 'Closeness Centrality', 'Betweenness Centrality', 'Eigenvector Centrality'), selected = 'Degree')),
-                                   mainPanel(   
-                                     threejs::scatterplotThreeOutput('graph'),
-                                     #      DT::DTOutput("networksummary"),
-                                     tableOutput("centralitysummary")
-                                   ))
-                                 ),
+                                titlePanel('Network Exploration'),
+                                   sidebarLayout(
+                                     sidebarPanel(
+                                       h2("Viewing Bipartite Network"),
+                                       selectInput(inputId = 'location', label = 'Select Location Variable', choices = c('District', 'Ward'), selected = 'District'),
+                                       selectInput(inputId = 'edge', label = 'Choose Edges', choices = c('Crime Type', 'Location'), selected = 'Crime Type'),
+                                       checkboxGroupInput("crimetypes", "Select Crime Types to Include:",
+                                                          choiceNames = all.primary.types,
+                                                          choiceValues = all.primary.types, inline = TRUE, selected = all.primary.types),
+                                       #sliderInput(inputId = 'weightrange', label = 'Select Weight Range', min = 0, max = 100000),
+                                       dateRangeInput(inputId = 'daterange', label = 'Choose a Date Range', start = '2017-01-01', end = '2017-12-31', startview = 'month', separator = ' to '),
+                                       uiOutput('moreControls'),
+                                       sliderInput(inputId = 'binwidth', label = 'Choose Binwidth' , min = 25, max = 250000, value = 250000),
+                                       tableOutput('centralitystats'),
+                                       br(),
+                                       selectInput(inputId = 'centrality', label = 'Select Centrality Measure', choices = c('Weighted Degree Centrality', 'Closeness Centrality', 'Betweenness Centrality', 'Weighted Eigenvector Centrality'), selected = 'Weighted Degree Centrality'),
+                                       tableOutput("network.descriptives")),
+                                     mainPanel(  
+                                       visNetwork::visNetworkOutput('graph'),
+                                       plotOutput('strengthdist'),
+                                       tableOutput("topcentralities")
+                                     )
+                                     
+                                   )),
                         tabPanel("Interpretation Guide",
                                  titlePanel("Interpreting Network Descriptives"),
                                  br(),
@@ -397,11 +416,11 @@ tabPanel("Advanced Analytics",
                           uiOutput("ethnicity.input"),
                         ),
                         box(
-                          title = "Nº of 311 Service Calls", width = 4, solidHeader = TRUE, status = "primary",
+                          title = "NÂº of 311 Service Calls", width = 4, solidHeader = TRUE, status = "primary",
                           uiOutput("service.calls.input"),
                         ),
                         box(
-                          title = "Nº of Police Stations", width = 4, solidHeader = TRUE, status = "primary",
+                          title = "NÂº of Police Stations", width = 4, solidHeader = TRUE, status = "primary",
                           uiOutput("police.input"),
                         ),
                       ),
