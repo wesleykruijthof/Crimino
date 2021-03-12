@@ -3,59 +3,48 @@ navbarPage("Crimino", collapsible = TRUE, inverse = TRUE, theme = "bootstrap.css
                     sidebarLayout(
                       sidebarPanel = sidebarPanel(h1("Welcome to Crimino!"),
                                                   h5("Connecting the dots of Chicago's crime patterns."),
-                                                  img(src = "Chicago.bean.png", height = 200, width = 200, align = "center")),
+                                                  img(src = "Chicago.bean.png", height = 400, width = 400, align = "center")),
                       mainPanel = mainPanel(
                         tabsetPanel(
                            tabPanel("Platform", 
                                      br(),
                             p("Crimino is a platform which aims to shed light on patterns of crime in the city of Chicago. 
-By making use of a dataset extracted from the Chicago Police department for the year 2020, this platform offers you the possibility to view and analyze criminal data in different formats."),
+By making use of a dataset extracted from the Chicago Police department for the year 2017, this platform offers you the possibility to view and analyze criminal data in different formats."),
 
 p("The general aim of Crimino is to expose patterns that could not previously be seen by the naked eye and help law enforcement distinguish connections between crime type, location and time."),
 
-p("In addition to the overview provided in Data explorer and Interactive map, Crimino provides an advanced analysis via link prediction to try and predict crime cooccurrence.
-Finally, Crimino provides a node similarity analysis to spot similarities across the wards of Chicago in terms of crime type and demographics.")),
-                                 tabpanel("Relevance",
+p("In addition to the overview provided in Data explorer and Interactive map, Crimino provides an advanced analysis to try and predict crime cooccurrence based on various user inputs.")),
+                                 tabPanel("Relevance",
                                           br(),
                                           p(" One of the drawbacks of having separate law enforcement entities dedicated to distinct locations is that sometimes, one can lose sight of the overall picture. 
                                             Officers working on different stations, or even on different crime types, do not get the chance to compare notes -- 
-                                            as there is too much going on as you will see through Crimino.")
+                                            as there is too much going on as you will see through Crimino."),
                                    p(" In comes Crimino, where crime analysts can combine data from different perpectives and infer different patterns from them.   
-                                            In addition to law enforcement officials, Crimino also aims to give Chicago citizens the opportunity to have an overview of crime in their location.")
-                                            p("Having this overview, gives authorities the opportunity to devise efficient measures of crime control and proactively fight it.")
+                                            In addition to law enforcement officials, Crimino also aims to give Chicago citizens the opportunity to have an overview of crime in their location."),
+                                            p("Having this overview, gives authorities the opportunity to devise efficient measures of crime control and proactively fight it.")),
                                             
                         
                             tabPanel("Team",
                                      br(),
                                      p("Meet the team behind Crimino! A team of students of Business Information Management at RSM who aim to help you explore the crime network in Chicago."),
                                      br(),
-                                     fluidRow(
-                                       column(3, 
-img(src = "Klea.png", height = 100, width = 100),
-img(src = "Wesley.png", height = 100, width = 100),
-img(src = "Maria.png", height = 100, width = 100),
-img(src = "Jelle.png", height = 100, width = 100)),
+img(src = "Klea.png", height = 100, width = 200),
+p("<b>","Klea Gjana","</b>"),
+p("Business Information student"),
 
-column(4, 
-p("Klea Gjana"),
-p("BIM student"),
-br(),
-br(),
-br(),
-p("Wesley Kruijthof"),
-p("BIM student"),
-br(),
-br(),
-br(),
-p("Maria Pelos Melo"),
-p("BIM student"),
-br(),
-br(),
-br(),
-p("Jelle van der Grijn"),
-p("BIM student"))
+img(src = "Wesley.png", height = 100, width = 200),
+p("<b>","Wesley Kruijthof","</b>"),
+p("Business Information student"),
+
+img(src = "Maria.png", height = 100, width = 200),
+p("<b>","Maria Pere de Melo","</b>"),
+p("Business Information student"),
+
+img(src = "Jelle.png", height = 100, width = 200),
+p("<b>","Jelle van der Grijn","</b>"),
+p("Business Information student")
                           
-                        ))))),
+                        )))),
            ),
            tabPanel("Data Explorer",
                          h1("Data Explorer"),
@@ -71,7 +60,7 @@ p("BIM student"))
                                      
                                      sidebarPanel(
                                                 p("Here you can find overall descriptives on the crime in Chicago in 2017. There are in total 254 different types of crimes happening accross 50 wards. 
-                                                       In total, there are around 30.000 crime cases in more that 28.000 different specific locations")
+                                                       In total, there are around 30.000 crime cases in more that 23.000 different specific locations"),
                                               br(),
                                        tableOutput("tb.descriptives")
                                      ),
@@ -91,7 +80,7 @@ p("BIM student"))
                                  titlePanel('Data Explorer Crime Types'),
                                  sidebarLayout(
                                    sidebarPanel(
-                                              p(" Through the "Data Explorer Crime Types" you can choose a crime type and check the frequency of this crime type per ward in the specified date range. 
+                                              p(" Through the 'Data Explorer Crime Types' you can choose a crime type and check the frequency of this crime type per ward in the specified date range. 
                                                        You also have the possibility to check the total amount that this crime has happened in all wards in the specified date range under the column 'Total'."),
                                             br(), 
                                      selectInput(inputId = 'crime.type', label = 'Select Crime Trype', 
@@ -109,15 +98,18 @@ p("BIM student"))
                                  titlePanel('Data Explorer Wards'),
                                  sidebarLayout(
                                    sidebarPanel(
-                                              p(" Through the "Data Explorer Wards" you can choose a ward and check the crime types that have happened in that ward in the specified date range.
-                                                       You also have the possibility to check how many times each crime type has happened and the total amount of that type of crime for the chosen ward.")
+                                              p(" Through the 'Data Explorer Wards' you can choose a ward and check the crime types that have happened in that ward in the specified date range.
+                                                       You also have the possibility to check how many times each crime type has happened and the total amount of that type of crime for the chosen ward.
+                                                In addition you can get an overview of demographics and income level on the ward you've chosen."),
                                             br(),
                                      selectInput(inputId = 'ward', label = 'Select Ward', choices = c(as.vector(unique(dt.crimes$Ward)), 'All Wards')),
                                      dateRangeInput(inputId = 'daterange', label = 'Select Date Range', start = '2017-01-01', end = '2017-12-31', format = 'yyyy-mm-dd')),
                                    mainPanel(
                                      tabsetPanel(
                                        tabPanel('Overview', 
-                                                {DT::DTOutput('summarytable')}),
+                                                {DT::DTOutput('summarytable')},
+                                                br(),
+                                       {DT:DTOutput('demotable')}),
                                        tabPanel('Chart',
                                                 {plotOutput('hist')})
                                      ))))
@@ -156,7 +148,7 @@ p("BIM student"))
                     )
            ),
            tabPanel("Network Exploration",
-                    h1("Network Exploration")
+                    h1("Network Exploration"),
                     br(),
                     p("What does the network of crime look like? How are two wards connected? In here you can choose between two projections of the crime dataset. Based on your choice, 
 you can project crime types connected by location, which connects different crimes if they have happened in the same location. Vice-versa, you can project locations as connected by crimes.
@@ -181,7 +173,7 @@ This projection, allows you to check locations that are connected by having comm
                         tabPanel("Interpretation Guide",
                                  titlePanel("Interpreting Network Descriptives"),
                                  br(),
-                                 h2("Summary Statistics")
+                                 h2("Summary Statistics"),
                                  p(" The number of nodes represents the total number of crimes OR locations that are part of the network."),
 p("The number of edges translates into the connections between the crimes and locations OR location and crimes"),
 p("The average degree states how connected, in terms of direct links, the crimes OR locations are to each other."),
@@ -197,9 +189,10 @@ p("Closeness Centrality: Measures the average shortest path length from a node t
 Thus, the more central in the network a crime OR location is, the closer it is to all other nodes of the same type."),
                     p("Betwennes Centrality: Measures how important a specific crime type OR location is in terms of connecting to other nodes of the same type."),
                                  
-                      ))), 
+                      )))), 
            tabPanel("Advanced Analytics",
                     titlePanel("Predicting Crime Occurrence"),
                     br(),
                     p("Through our predictive analysis of the crime dataset you can receive information about whether a certain crime station is likely to happen in a specific ward given that two wards are connected."),
+)
 )
