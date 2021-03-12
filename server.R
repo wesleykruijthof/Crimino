@@ -40,6 +40,12 @@ function(input, output, session) {
   
   # -- Ward Tab
   
+  demodata <-function(){
+    
+    dt.ward.table[Ward %in% input$ward][, "% White" := Race.White_pct * 100][, "% Asian" := Race.Asian_pct * 100][, "% Black" := Race.Black_pct * 100][, "% Hispanic" := Ethnicity.Hispanic_pct * 100][, "Income in USD"  := Income]
+          
+  }
+  
   tabledata <- function(){
     dt.crimes[Ward %in% input$ward][Date.Time >= input$daterange[1] & Date.Time <= input$daterange[2]][, Sum_Crime_Type_Ward := .N[1L], by = list(Primary.Type)][, Total_Crimes_Ward := .N[1L], by = Ward][, list(Primary.Type, Sum_Crime_Type_Ward, Total_Crimes_Ward)][!duplicated(Primary.Type), ]
   }
@@ -52,6 +58,9 @@ function(input, output, session) {
   })
   output$hist <- renderPlot({
     histdata()
+  })
+  output$demotable <- DT::renderDT({
+    demodata()
   })
   
   # ---- Interactive Map ----
