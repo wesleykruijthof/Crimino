@@ -1,6 +1,11 @@
 function(input, output, session) {
   theme_set(theme_classic() + theme(text=element_text(family="Raleway")))
   
+  dt.crimes.filtered <- dt.crimes2[, list(Primary.Type, Ward, District, Date.Time)]
+  dt.crimes.filtered$Date.Time <- as.Date(dt.crimes.filtered$Date.Time)
+  
+  dt.freq.crimes <- dt.crimes[, .N, by = Primary.Type][order(-N)]
+  
   # ---- Reactive Inputs ----
   output$race.white.input <- renderUI({
     tagList(
@@ -55,20 +60,57 @@ function(input, output, session) {
   })
   
   output$hist.Primary.Type <- renderPlot({
-    ggplot(dt.crimes, aes(x = Primary.Type)) + geom_bar() + ggtitle("Occurences per crime type - Primary.Type") + coord_flip()
+    ggplot(dt.crimes, aes(x = Primary.Type)) + geom_bar() + ggtitle("Occurences per crime type") + coord_flip() + labs(x = 'Crime')
   })
   
-  output$hist.Description <- renderPlot({
-    ggplot(dt.crimes, aes(x = Description)) + geom_bar() + ggtitle("Occurences per crime type - Description") + coord_flip()
-  })
+  #output$hist.Description <- renderPlot({
+   # ggplot(dt.crimes, aes(x = Description)) + geom_bar() + ggtitle("Occurences per crime type - Description") + coord_flip()
+  #})
+  
+ # output$tb.locations <- renderTable({
+  #  dt.locations <- data.frame(Location = c("Wards", "Districts", "Beats", "Community Areas"), Total = c(length(unique(dt.crimes$Ward)), length(unique(dt.crimes$District)), length(unique(dt.crimes$Beat)), length(unique(dt.crimes$Community.Area))))
+  #})
   
   output$tb.locations <- renderTable({
-    dt.locations <- data.frame(Location = c("Wards", "Districts", "Beats", "Community Areas"), Total = c(length(unique(dt.crimes$Ward)), length(unique(dt.crimes$District)), length(unique(dt.crimes$Beat)), length(unique(dt.crimes$Community.Area))))
+    dt.location <- data.frame(Location = c("Districts", "Wards", "Community Areas", "Beats", "Blocks"), 
+                              Total = c(length(unique(dt.crimes$District)), length(unique(dt.crimes$Ward)), length(unique(dt.crimes$Community.Area)), length(unique(dt.crimes$Beat)), length(unique(dt.crimes$Block))), 
+                              Mean = c("11518.48", "5298.5", "3440.584", "966.8796", "966.8796"), 
+                              SD = c("4084.802", "3080.482", "2985.395", "391.9794", "216.28922"), 
+                              Min = c("3", "2224", "268", "61", "1"), 
+                              Max = c("17842", "17145", "15273", "3108", "946"))
   })
+#}
+  output$variables <- DT:: renderDT({
+    dt.variables
+  })
+  
+  output$sample <- DT:: renderDT({
+    
+    DT::datatable(
+      dt.crimes %>% 
+        dplyr::sample_n(100),
+      filter = 'top', extensions = c('Buttons', 'FixedColumns'),
+      options = list(
+        scrollX = 500,
+        deferRender = TRUE,
+        scroller = TRUE,
+        paging = TRUE,
+        pageLength = 10,
+        buttons = list('excel',
+                       list(extend = 'colvis', targets = 0, visible = FALSE)),
+        dom = 'lBfrtip',
+        fixedColumns = list(leftColumns = 1)), 
+      rownames = FALSE)
+  })
+  
+  output$df.top.10.crimes <- renderTable({
+    df.top.10.crimes <- data.frame(Crime = c((head(dt.freq.crimes$Primary.Type, 10))), Daily = c(trunc(head(dt.freq.crimes$N, 10)/360)), Hourly = c(trunc(head(dt.freq.crimes$N, 10)/(360*24))))
+  })
+  
   
   # -- Crime Tab
   tabledata.ward <- function(){
-    dt.crimes[Primary.Type %in% input$crime.type][Date.Time >= input$daterange.crime[1] & Date.Time <= input$daterange.crime[2]][, Sum_Crimes_Per_Ward := .N[1L], by = list(Primary.Type, Ward)][, Total_Crimes_Type := .N[1L], by = Primary.Type][, list(Ward, Sum_Crimes_Per_Ward, Total_Crimes_Type)][!duplicated(Ward), ]
+    dt.crimes[Primary.Type %in% input$crime.type][Date.Time >= input$daterange.crime[1] & Date.Time <= input$daterange.crime[2]][, Per_Ward := .N[1L], by = list('Crime' = Primary.Type, Ward)][, Total := .N[1L], by = Crime][, list(Ward, Per_Ward, Total)][!duplicated(Ward), ][order(-Per_Ward)]
   }
   histdata.ward <- function(){
     dt.crimes.hist.wards <- dt.crimes[Primary.Type %in% input$crime.type][Date.Time >= input$daterange.crime[1] & Date.Time <= input$daterange.crime[2]]
@@ -83,30 +125,32 @@ function(input, output, session) {
   
   # -- Ward Tab
   
-    dt.ward.table <- as.data.table(dt.ward)
-  demodata <-function(){
-    dt.ward.table[Ward %in% input$ward][, "% White" := Race.White_pct * 100][, "% Asian" := Race.Asian_pct * 100][, "% Black" := Race.Black_pct * 100][, "% Hispanic" := Ethnicity.Hispanic_pct * 100][, "Income in USD"  := Income]
-          
+  dt.ward.table <- as.data.table(dt.ward)
+ 
+   demodata <-function(){
+    dt.ward.table[Ward %in% input$ward][, "Pct.White" := Race.White_pct * 100][, "Pct.Asian" := Race.Asian_pct * 100][, "Pct.Black" := Race.Black_pct * 100][, "Pct.Hispanic" := Ethnicity.Hispanic_pct * 100][, "IncomeUSD"  := Income][, list(Pct.White, Pct.Asian, Pct.Black, Pct.Hispanic, IncomeUSD)]
+    
   }
   
   tabledata <- function(){
-    dt.crimes[Ward %in% input$ward][Date.Time >= input$daterange[1] & Date.Time <= input$daterange[2]][, Sum_Crime_Type_Ward := .N[1L], by = list(Primary.Type)][, Total_Crimes_Ward := .N[1L], by = Ward][, list(Primary.Type, Sum_Crime_Type_Ward, Total_Crimes_Ward)][!duplicated(Primary.Type), ]
+    dt.crimes[Ward %in% input$ward][Date.Time >= input$daterange[1] & Date.Time <= input$daterange[2]][, 'Per_Crime' := .N[1L], by = list(Primary.Type)][, 'Total' := .N[1L], by = Ward][, list(Primary.Type, Per_Crime, Total)][!duplicated(Primary.Type), ][order(-Per_Crime)]
   }
   histdata <- function(){
     dt.crimes.hist <- dt.crimes[Ward %in% input$ward][Date.Time >= input$daterange[1] & Date.Time <= input$daterange[2]]
-    dt.crimes.hist %>% ggplot(aes(x = Primary.Type)) + geom_bar() + coord_flip()
+    dt.crimes.hist %>% ggplot(aes(x = Primary.Type)) + geom_bar() + coord_flip() + labs(x = 'Crime')
   }
-  output$summarytable <- DT::renderDT({
-    tabledata()
-  })
-  output$hist <- renderPlot({
-    histdata()
-  })
   
-    output$demotable <- DT::renderDT({
+  output$demotable <- DT::renderDT({
     demodata()
   })
   
+  output$summarytable <- DT::renderDT({
+    tabledata()
+  })
+  
+  output$hist <- renderPlot({
+    histdata()
+  })
   
   # ---- Interactive Map ----
   
@@ -274,107 +318,193 @@ function(input, output, session) {
   })
   
   # ---- Network Exploration ----
+ 
+  crimes <- reactive({
+    dt.crimes.filtered <- dt.crimes.filtered[Primary.Type %in% input$crimetypes, ]
+  })
   
-  graphInput <- reactive({
-    if (input$node == 'District') {
+  
+  
+  mergekey <- reactive({
+    
+    if (input$edge == 'Crime Type') {
+      mergekey <- 'Primary.Type'
+    } else if (input$location == 'Ward' & input$edge == 'Location') {
+      mergekey <- 'Ward'
+    } else if (input$location == 'District' & input$edge == 'Location') {
+      mergekey <- 'District'
     }
-    all.vertices <- dt.crimes[!duplicated(District), list(District, type = TRUE)]
-    if (input$node == 'Ward') {
-      all.vertices <- dt.crimes[!duplicated(Ward), list(Ward, type = TRUE)]
+  })
+  
+  
+  edgelist <- reactive({
+    
+    if (input$location == 'Ward' & input$edge == 'Crime Type') {
+      edgelist <- merge(dt.crimes.filtered, dt.crimes.filtered, by = mergekey(), allow.cartesian = TRUE)
+      edgelist <- edgelist[!duplicated(edgelist)][Date.Time.x >= input$daterange[1] & Date.Time.y >= input$daterange[1] & Date.Time.x <= input$daterange[2] & Date.Time.y <= input$daterange[2], ]
+      edgelist <- edgelist[, list(Primary.Type, Ward.x, Ward.y)][Ward.x != Ward.y, ]
+      edgelist <- edgelist[, weight := .N, by = list(Ward.x, Ward.y)][!duplicated(edgelist)]
+      edgelist$min <- with(edgelist, pmin(Ward.x, Ward.y))
+      edgelist$max <- with(edgelist, pmax(Ward.x, Ward.y))
+      edgelist <- edgelist %>% mutate(Primary.Type.Edge = paste(Primary.Type, min, max))
+      edgelist <- edgelist[!duplicated(Primary.Type.Edge)][, list(Ward.x, Ward.y, weight, Primary.Type)]
+      edgelist <- as.matrix(edgelist[, list(Ward.x, Ward.y, weight)])
+    } else if (input$location == 'District' & input$edge == 'Crime Type') {
+      edgelist <- merge(dt.crimes.filtered, dt.crimes.filtered, by = mergekey(), allow.cartesian = TRUE)
+      edgelist <- edgelist[!duplicated(edgelist)][Date.Time.x >= input$daterange[1] & Date.Time.y >= input$daterange[1] & Date.Time.x <= input$daterange[2] & Date.Time.y <= input$daterange[2], ]
+      edgelist <- edgelist[, list(Primary.Type, District.x, District.y)][District.x != District.y, ][, weight := .N, by = list(District.x, District.y)]
+      edgelist <- edgelist[!duplicated(edgelist)]
+      edgelist$min <- with(edgelist, pmin(District.x, District.y))
+      edgelist$max <- with(edgelist, pmax(District.x, District.y))
+      edgelist <- edgelist %>% mutate(Primary.Type.Edge = paste(Primary.Type, min, max))
+      edgelist <- edgelist[!duplicated(Primary.Type.Edge), list(District.x, District.y, weight, Primary.Type)]
+      edgelist <- as.matrix(edgelist[, list(District.x, District.y, weight)])
+    } else if (input$location == 'Ward' & input$edge == 'Location') {
+      edgelist <- merge(dt.crimes.filtered, dt.crimes.filtered, by = mergekey(), allow.cartesian = TRUE)
+      edgelist <- edgelist[!duplicated(edgelist)][Date.Time.x >= input$daterange[1] & Date.Time.y >= input$daterange[1] & Date.Time.x <= input$daterange[2] & Date.Time.y <= input$daterange[2], ]
+      edgelist <- edgelist[, list(Ward, Primary.Type.x, Primary.Type.y)][Primary.Type.x != Primary.Type.y, ][, weight := .N, by = list(Primary.Type.x, Primary.Type.y, Ward)]
+      edgelist <- edgelist[!duplicated(edgelist)]
+      edgelist <- edgelist[!duplicated(lapply(as.data.frame(t(edgelist), stringsAsFactors=FALSE), sort)),][, list(Primary.Type.x, Primary.Type.y, weight, Ward)]
+      edgelist <- as.matrix(edgelist[, list(Primary.Type.x, Primary.Type.y, weight)])
+    } else if (input$location == 'District' & input$edge == 'Location') {
+      edgelist <- merge(dt.crimes.filtered, dt.crimes.filtered, by = mergekey(), allow.cartesian = TRUE)
+      edgelist <- edgelist[!duplicated(edgelist)][Date.Time.x >= input$daterange[1] & Date.Time.y >= input$daterange[1] & Date.Time.x <= input$daterange[2] & Date.Time.y <= input$daterange[2], ]
+      edgelist <- edgelist[, list(District, Primary.Type.x, Primary.Type.y)][Primary.Type.x != Primary.Type.y, ][, weight := .N, by = list(Primary.Type.x, Primary.Type.y, District)]
+      edgelist <- edgelist[!duplicated(edgelist)]
+      edgelist <- edgelist[!duplicated(lapply(as.data.frame(t(edgelist), stringsAsFactors=FALSE), sort)),][, list(Primary.Type.x, Primary.Type.y, weight, District)]
+      edgelist <- as.matrix(edgelist[, list(Primary.Type.x, Primary.Type.y, weight)])
     }
-    all.primary.types <- dt.crimes[!duplicated(Primary.Type), list(Primary.Type, type = FALSE)]
-    all.vertices <- rbind(all.vertices, all.primary.types, use.names = FALSE)
-    all.vertices
   })
   
   graphObject <- reactive({
     
-    if (input$node == 'District') {
-      g.plot <- igraph::graph.data.frame(dt.crimes[, list(Primary.Type, District)], directed = FALSE, vertices = graphInput())
-    } else if (input$node == 'Ward') {
-      g.plot <- igraph::graph.data.frame(dt.crimes[, list(Primary.Type, Ward)], directed = FALSE, vertices = graphInput())
-    }
-    if (input$edge == 'Crime Type') {
-      g.plot <- bipartite.projection(g.plot)$proj2
-    } else if (input$edge == 'Location') {
-      g.plot <- bipartite.projection(g.plot)$proj1
-    }
-    no.connections <- which(igraph::degree(g.plot) > input$degree)
-    g.plot <- igraph::delete.vertices(g.plot, no.connections)
+    g.graph <- graph.edgelist(edgelist()[, 1:2], directed = FALSE)
+    E(g.graph)$weight <- as.numeric(edgelist()[, 3])
+    V(g.graph)$strength <- igraph::strength(g.graph)
+    V(g.graph)$closeness <- igraph::closeness(g.graph)
+    V(g.graph)$betweenness <- igraph::betweenness(g.graph)
+    V(g.graph)$evcent <- igraph::eigen_centrality(g.graph)$vector
+    g.graph
+  })
+  
+  plotObject <- reactive({
+    g.plot <- graphObject()
+    kept <- c(which(E(g.plot)$weight >= input$weightrange[1], which(E(g.plot)$weight <= input$weightrange[2])))
+    g.plot <- subgraph.edges(g.plot, kept) 
+    E(g.plot)$weight <- as.numeric(edgelist()[, 3])
+    V(g.plot)$strength <- igraph::strength(g.plot)
+    V(g.plot)$closeness <- igraph::closeness(g.plot)
+    V(g.plot)$betweenness <- igraph::betweenness(g.plot)
+    V(g.plot)$evcent <- igraph::eigen_centrality(g.plot)$vector
     g.plot
   })
   
-  graphCentralities <- reactive({
-    if (input$node == 'District') {
-    }
-    all.vertices <- dt.crimes[!duplicated(District), list(District, type = TRUE)]
-    if (input$node == 'Ward') {
-      all.vertices <- dt.crimes[!duplicated(Ward), list(Ward, type = TRUE)]
-    }
-    all.primary.types <- dt.crimes[!duplicated(Primary.Type), list(Primary.Type, type = FALSE)]
-    all.vertices <- rbind(all.vertices, all.primary.types, use.names = FALSE)
+  visObject <- reactive({
+    g.ob <- plotObject()
+    ## convert to VisNetwork-list
+    visn.graph <- visNetwork::toVisNetworkData(g.ob)
+    ## copy column "weight" to new column "value" in list "edges"
+    visn.graph$edges$value <- g.ob$edges$weight
     
-    
-    if (input$node == 'District') {
-      g.plot <- igraph::graph.data.frame(dt.crimes[, list(Primary.Type, District)], directed = FALSE, vertices = all.vertices)
-    } else if (input$node == 'Ward') {
-      g.plot <- igraph::graph.data.frame(dt.crimes[, list(Primary.Type, Ward)], directed = FALSE, vertices = all.vertices)
-    }
+    visNetwork(nodes = visn.graph$nodes, edges = visn.graph$edges, height = "500px") %>% visNetwork::visIgraphLayout(layout = 'layout_nicely')
+  })
+  
+  topcentralities <- reactive({
+    dt.g.graph <- data.table::data.table(igraph::get.data.frame(plotObject(), "vertices"))
     if (input$edge == 'Crime Type') {
-      g.plot <- bipartite.projection(g.plot)$proj2
-    } else if (input$edge == 'Location') {
-      g.plot <- bipartite.projection(g.plot)$proj1
+      dt.g.graph <- dt.g.graph[, name := rownames(dt.g.graph)] }
+    dt.g.graph.order <- data.frame(strengthname = head(dt.g.graph[order(-strength)], 10)$name,
+                                   strength = head(dt.g.graph[order(-strength)], 10)$strength,
+                                   closenessname = head(dt.g.graph[order(-closeness)], 10)$name,
+                                   closeness = head(dt.g.graph[order(-closeness)], 10)$closeness,
+                                   betweennessname = head(dt.g.graph[order(-betweenness)], 10)$name,
+                                   betweenness = head(dt.g.graph[order(-betweenness)], 10)$ betweenness,
+                                   evcentname = head(dt.g.graph[order(-evcent)], 10)$name,
+                                   evcent = head(dt.g.graph[order(-evcent)], 10)$evcent) 
+    dt.g.graph.order
+  })
+  
+  centralitystats <- reactive({ 
+    
+    dt.g.graph <- data.table::data.table(igraph::get.data.frame(plotObject(), 'vertices'))
+    
+    if (input$centrality == "Betweenness Centrality") {
+      dt.g.graph <- data.frame(Minimum = min(dt.g.graph$betweenness),
+                               Maximum = max(dt.g.graph$betweenness),
+                               StandardDev = sd(dt.g.graph$betweenness),
+                               Mean = mean(dt.g.graph$betweenness)
+                               )
+      
+    } else if (input$centrality == "Weighted Degree Centrality") {
+      dt.g.graph <- data.frame(Minimum = min(dt.g.graph$strength),
+                               Maximum = max(dt.g.graph$strength),
+                               StandardDev = sd(dt.g.graph$strength),
+                               Mean = mean(dt.g.graph$strength)
+                               )
+      
+    } else if (input$centrality == "Closeness Centrality") {
+      dt.g.graph <- data.frame(Minimum = min(dt.g.graph$closeness),
+                               Maximum = max(dt.g.graph$closeness),
+                               StandardDev = sd(dt.g.graph$closeness),
+                               Mean = mean(dt.g.graph$closeness)
+                               )
+      
+    } else if (input$centrality == "Weighted Eigenvector Centrality") {
+      dt.g.graph <- data.frame(Minimum = min(dt.g.graph$evcent),
+                               Maximum = max(dt.g.graph$evcent),
+                               StandardDev = sd(dt.g.graph$evcent),
+                               Mean = mean(dt.g.graph$evcent)
+                               )
     }
-    no.connections <- which(igraph::degree(g.plot) > input$degree)
-    g.plot <- igraph::delete.vertices(g.plot, no.connections)
-    
-    V(g.plot)$degree <- igraph::degree(g.plot)
-    V(g.plot)$closeness <- igraph::closeness(g.plot)
-    V(g.plot)$betweenness <- igraph::betweenness(g.plot)
-    V(g.plot)$evcent <- igraph::evcent(g.plot)$vector
-    
-    dt.g.object <- data.table::data.table(igraph::get.data.frame(g.plot, "vertices"))
-    dt.g.object.order <- data.frame(degreename = head(dt.g.object[order(-degree)], 20)$name,
-                                    degree = head(dt.g.object[order(-degree)], 20)$degree,
-                                    closenessname = head(dt.g.object[order(-closeness)], 20)$name,
-                                    closeness = head(dt.g.object[order(-closeness)], 20)$closeness,
-                                    betweennessname = head(dt.g.object[order(-betweenness)], 20)$name,
-                                    betweenness = head(dt.g.object[order(-betweenness)], 20)$betweenness,
-                                    evcentname = head(dt.g.object[order(-evcent)], 20)$name,
-                                    evcent = head(dt.g.object[order(-evcent)], 20)$evcent)
-    dt.g.object.order
+    dt.g.graph
   })
   
-  output$graph <- threejs::renderScatterplotThree({
-    #dt.crimes <- dt.crimes[Date.Time >= input$daterange[1] & Date.Time <= input$daterange[2]]
+  
+  network.descriptives <- reactive ({
+    g.graph <- plotObject()
+    dt.descriptives.network <- data.frame(Measure = c("N. nodes", "N. edges", "Diameter", "Av. Path Length", "Clustering Coefficient"), Statistic = c(length(V(g.graph)), length(E(g.graph)), diameter(g.graph), average.path.length(g.graph), transitivity(g.graph)))
     
-    threejs::graphjs(graphObject(), vertex.color = 'orange', vertex.size = 1, vertex.label = NA, edge.color = 'blue')
-    #igraph::plot.igraph(g.plot, vertex.size = 3, vertex.label = NA)
+    dt.descriptives.network
+    
   })
   
-  #  output$networksummary <- DT::renderDT({
-  #    dt.crimes <- dt.crimes[, list(Primary.Type, District, Ward)]
-  #    
-  #    if (input$node == 'District') {
-  #      g.plot <- igraph::graph.data.frame(dt.crimes[, list(Primary.Type, District)], directed = FALSE, vertices = graphInput())
-  #    } else if (input$node == 'Ward') {
-  #      g.plot <- igraph::graph.data.frame(dt.crimes[, list(Primary.Type, Ward)], directed = FALSE, vertices = graphInput())
-  #    }
-  #    if (input$projection == 'Bipartite') {
-  #      g.plot <- bipartite.projection(g.plot)$proj2
-  #    } else if (input$projection == 'Network') {
-  #      g.plot <- g.plot
-  #    }
-  #    
-  #    no.connections <- which(igraph::degree(g.plot) == 0)
-  #    igraph::delete.vertices(g.plot, no.connections)
-  #    })
   
-  output$centralitysummary <- renderTable({
-    graphCentralities()
+  output$centralitystats <- renderTable({
+    centralitystats()
+  })  
+  
+  
+  output$network.descriptives <- renderTable ({
+    network.descriptives()
   })
   
+  
+  output$graph <- visNetwork::renderVisNetwork({
+    visObject()
+    
+  })
+  
+  output$strengthdist <- renderPlot({
+    g.plot <- plotObject()
+   # ggplot2::ggplot(igraph::strength(g.plot), aes(x = igraph::strength(g.plot))) + geom_histogram() + bins 
+    ggplot2::qplot(igraph::strength(g.plot), geom = 'histogram', binwidth = input$binwidth) + labs(x = 'Weighted Degree')
+  })
+  
+  output$topcentralities <- renderTable({
+    topcentralities()
+  })  
+  
+  output$moreControls <- renderUI({
+    g.g <- graphObject()
+    tagList(
+      sliderInput('weightrange', 'Select Weight Range', min = min(E(g.g)$weight), max = max(E(g.g)$weight), value = c(((min(E(g.g)$weight) + max(E(g.g)$weight)) * 0.2), max(E(g.g)$weight))))
+  })
+
   # ---- Advanced Analytics ----
+  
+  output$union <- visNetwork::renderVisNetwork({
+    visNetwork::visNetwork(nodes = visn.union$nodes, edges = visn.union$edges, height = '1500px', width = '1000px') %>% visNetwork::visIgraphLayout(layout = 'layout_nicely')
+  })
   
   output$regression.data <- DT::renderDT({
     dt.regression.data <- round(dt.ward, 2)
